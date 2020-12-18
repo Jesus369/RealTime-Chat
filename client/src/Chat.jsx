@@ -1,20 +1,22 @@
-import React from "react";
+import React, { state, useState } from "react";
 
 import {
   ApolloClient,
   InMemoryCache,
   ApolloProvider,
   useQuery,
+  useMutation,
   gql
 } from "@apollo/client";
 
-import { Container } from "shards-react";
+import { Container, Row, Col, FormInput, Button } from "shards-react";
 
 const client = new ApolloClient({
   uri: "http://localhost:4000/",
   cache: new InMemoryCache()
 });
 
+// GQL FUNCTIONS
 const GET_MESSAGES = gql`
   query GET_MESSAGES {
     messages {
@@ -25,8 +27,17 @@ const GET_MESSAGES = gql`
   }
 `;
 
+const POST_MESSAGE = gql`
+  mutation POST_MESSAGE($user: String!, $content: String!) {
+    postMessage(user: $user, content: $content)
+  }
+`;
+
+// RENDERING MESSAGES COMPONENT
 const Messages = ({ user }) => {
-  const { data, loading } = useQuery(GET_MESSAGES);
+  const { data, loading } = useQuery(GET_MESSAGES, {
+    pollInterval: 500
+  });
   if (loading) return <div>Loading</div>;
 
   return (
@@ -39,7 +50,23 @@ const Messages = ({ user }) => {
             paddingBottom: "1em"
           }}
         >
-          <ul
+          {user !== messageUser && (
+            <div
+              style={{
+                height: 50,
+                width: 50,
+                marginRight: "0.5em",
+                border: "2px solid #e5e6ea",
+                borderRadius: 20,
+                textAlign: "center",
+                fontSize: "11pt",
+                paddingTop: 5
+              }}
+            >
+              {messageUser.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div
             style={{
               background: user === messageUser ? "#58bf56" : "#e5e6ea",
               color: user === messageUser ? "white" : "black",
@@ -48,19 +75,82 @@ const Messages = ({ user }) => {
               maxWidth: "60%"
             }}
           >
-            <li>{content}</li>
-          </ul>
+            {content}
+          </div>
         </div>
       ))}
     </div>
   );
 };
 
+// POSTING MESSAGE COMPONENT
 const Chat = () => {
+  const [state, setState] = useState({
+    user: "Jack",
+    content: ""
+  });
+  const [postMessage, { data }] = useMutation(POST_MESSAGE);
+
+  let { user, content } = state;
+  const onSend = () => {
+    if (content.length > 0) {
+      postMessage({
+        variables: {
+          user: user,
+          content: content
+        }
+      });
+    }
+
+    setState({
+      ...state,
+      content: ""
+    });
+  };
   return (
-    <div>
-      <Messages user="Jack" />
-    </div>
+    <Container>
+      <Messages user={user} />
+      <Row>
+        <Col xs={2} style={{ padding: 0 }}>
+          <FormInput
+            label="User"
+            value={state.user}
+            onChange={e => {
+              setState({
+                ...state,
+                user: e.target.value
+              });
+            }}
+          />
+        </Col>
+        <Col cs={8}>
+          <FormInput
+            label="Content"
+            value={state.content}
+            onChange={e => {
+              setState({
+                ...state,
+                content: e.target.value
+              });
+            }}
+            onKeyUp={e => {
+              if (e.keyCode === 13) {
+                onSend();
+              }
+            }}
+          />
+        </Col>
+        <Col xs={2} style={{ padding: 0 }}>
+          <Button
+            onClick={() => {
+              onSend();
+            }}
+          >
+            Send
+          </Button>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 
